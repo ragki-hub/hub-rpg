@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG Twitch - Overlay Animado</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .character {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pixel-art {
+      width: 80px;
+      height: 80px;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .username {
+      color: #ffdd8a;
+      font-weight: bold;
+      font-size: 14px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      white-space: nowrap;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .event-label {
+      color: #7dd3fc;
+      font-size: 12px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ANIMACIONES */
+    @keyframes combate {
+      0%, 100% { transform: translateX(0) scaleX(1); }
+      25% { transform: translateX(20px) scaleX(1); }
+      50% { transform: translateX(0) scaleX(1); }
+      75% { transform: translateX(-20px) scaleX(-1); }
+    }
+
+    @keyframes robo {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-10px) rotate(-5deg); }
+      50% { transform: translateY(-20px) rotate(0deg); }
+      75% { transform: translateY(-10px) rotate(5deg); }
+    }
+
+    @keyframes aparicion {
+      0% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes desaparicion {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+    }
+
+    @keyframes celebracion {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-30px) rotate(-10deg); }
+      50% { transform: translateY(-40px) rotate(10deg); }
+      75% { transform: translateY(-30px) rotate(-10deg); }
+    }
+
+    @keyframes derrota {
+      0%, 100% { transform: rotateZ(0deg); }
+      50% { transform: rotateZ(-90deg) translateY(20px); }
+    }
+
+    @keyframes duelo {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(15px); }
+    }
+
+    @keyframes duelo-2 {
+      0%, 100% { transform: translateX(0) scaleX(-1); }
+      50% { transform: translateX(-15px) scaleX(-1); }
+    }
+
+    .char-combat {
+      animation: combate 0.8s ease-in-out infinite;
+    }
+
+    .char-robo {
+      animation: robo 0.8s ease-in-out infinite;
+    }
+
+    .char-celebracion {
+      animation: celebracion 1s ease-in-out infinite;
+    }
+
+    .char-derrota {
+      animation: derrota 1.2s ease-in-out forwards;
+    }
+
+    .char-duelo-1 {
+      animation: duelo 0.8s ease-in-out infinite;
+    }
+
+    .char-duelo-2 {
+      animation: duelo-2 0.8s ease-in-out infinite;
+    }
+
+    .char-entry {
+      animation: aparicion 0.4s ease-out forwards;
+    }
+
+    .char-exit {
+      animation: desaparicion 0.4s ease-out forwards;
+    }
+
+    .gold-pop {
+      position: absolute;
+      color: #fbbf24;
+      font-weight: bold;
+      font-size: 18px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+      animation: goldFloat 1.5s ease-out forwards;
+    }
+
+    @keyframes goldFloat {
+      0% {
+        opacity: 1;
+        transform: translateY(0) translateX(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-60px) translateX(20px);
+      }
+    }
+
+    .xp-pop {
+      position: absolute;
+      color: #6ee7a7;
+      font-weight: bold;
+      font-size: 18px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+      animation: xpFloat 1.5s ease-out forwards;
+    }
+
+    @keyframes xpFloat {
+      0% {
+        opacity: 1;
+        transform: translateY(0) translateX(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-60px) translateX(-20px);
+      }
+    }
+
+    .queue-info {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(11, 16, 32, 0.9);
+      border: 2px solid rgba(245, 199, 106, 0.3);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #aebcd7;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 9999;
+      display: none;
+    }
+
+    .queue-info.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="queue-info" class="queue-info">
+    Eventos en cola: <span id="queue-count">0</span>
+  </div>
+
+  <script>
+    // ==========================================
+    // CONFIGURACIÓN
+    // ==========================================
+
+    const CONFIG = {
+      ws_url: "ws://localhost:8080", // URL de Streamer.bot WebSocket
+      max_characters: 6,
+      character_lifetime: 6000, // 6 segundos
+      queue_delay: 500, // Delay entre eventos
+    };
+
+    // ==========================================
+    // PERSONAJES PIXEL ART (SVG)
+    // ==========================================
+
+    const CHARACTERS = {
+      guerrero: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="3" fill="#f5a623"/>
+          <rect x="5" y="3" width="6" height="3" fill="#d4691c"/>
+          <rect x="4" y="6" width="8" height="4" fill="#c94c4c"/>
+          <rect x="6" y="10" width="4" height="2" fill="#a0a0a0"/>
+          <rect x="5" y="12" width="3" height="4" fill="#8b6d47"/>
+          <rect x="8" y="12" width="3" height="4" fill="#8b6d47"/>
+          <rect x="3" y="8" width="2" height="3" fill="#c94c4c"/>
+          <rect x="11" y="8" width="2" height="3" fill="#c94c4c"/>
+        </svg>
+      `,
+      mago: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="2" fill="#7c3aed"/>
+          <polygon points="8,2 6,6 10,6" fill="#8b5cf6"/>
+          <rect x="5" y="6" width="6" height="4" fill="#6d28d9"/>
+          <rect x="4" y="10" width="8" height="2" fill="#7c3aed"/>
+          <rect x="5" y="12" width="3" height="4" fill="#5b21b6"/>
+          <rect x="8" y="12" width="3" height="4" fill="#5b21b6"/>
+          <circle cx="8" cy="4" r="1" fill="#fbbf24"/>
+          <circle cx="6" cy="8" r="1" fill="#fbbf24"/>
+          <circle cx="10" cy="8" r="1" fill="#fbbf24"/>
+        </svg>
+      `,
+      arquero: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="3" fill="#92400e"/>
+          <rect x="5" y="3" width="6" height="3" fill="#b45309"/>
+          <rect x="4" y="6" width="8" height="4" fill="#92400e"/>
+          <rect x="6" y="10" width="4" height="2" fill="#78350f"/>
+          <rect x="5" y="12" width="3" height="4" fill="#78350f"/>
+          <rect x="8" y="12" width="3" height="4" fill="#78350f"/>
+          <line x1="2" y1="8" x2="14" y2="8" stroke="#fbbf24" stroke-width="1"/>
+          <polygon points="13,8 15,7 15,9" fill="#fbbf24"/>
+        </svg>
+      `,
+      chamo: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="2" fill="#059669"/>
+          <rect x="5" y="2" width="6" height="4" fill="#10b981"/>
+          <rect x="4" y="6" width="8" height="4" fill="#059669"/>
+          <rect x="6" y="10" width="4" height="2" fill="#047857"/>
+          <rect x="5" y="12" width="3" height="4" fill="#065f46"/>
+          <rect x="8" y="12" width="3" height="4" fill="#065f46"/>
+          <circle cx="7" cy="4" r="1" fill="#fbbf24"/>
+          <circle cx="9" cy="4" r="1" fill="#fbbf24"/>
+        </svg>
+      `,
+      sahur: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="3" fill="#dc2626"/>
+          <rect x="5" y="3" width="6" height="3" fill="#ef4444"/>
+          <rect x="4" y="6" width="8" height="4" fill="#dc2626"/>
+          <rect x="6" y="10" width="4" height="2" fill="#b91c1c"/>
+          <rect x="5" y="12" width="3" height="4" fill="#7f1d1d"/>
+          <rect x="8" y="12" width="3" height="4" fill="#7f1d1d"/>
+          <polygon points="8,5 10,4 12,5 11,7 9,7" fill="#fbbf24"/>
+        </svg>
+      `,
+      migajero: `
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="0" width="4" height="2" fill="#1e40af"/>
+          <rect x="5" y="2" width="6" height="4" fill="#3b82f6"/>
+          <rect x="4" y="6" width="8" height="4" fill="#1e40af"/>
+          <rect x="6" y="10" width="4" height="2" fill="#1e3a8a"/>
+          <rect x="5" y="12" width="3" height="4" fill="#0f172a"/>
+          <rect x="8" y="12" width="3" height="4" fill="#0f172a"/>
+          <circle cx="8" cy="4" r="1" fill="#fbbf24"/>
+          <circle cx="6" cy="8" r="1" fill="#fbbf24"/>
+          <circle cx="10" cy="8" r="1" fill="#fbbf24"/>
+          <circle cx="7" cy="10" r="1" fill="#60a5fa"/>
+          <circle cx="9" cy="10" r="1" fill="#60a5fa"/>
+        </svg>
+      `,
+    };
+
+    // ==========================================
+    // ESTADO
+    // ==========================================
+
+    let characters = [];
+    let eventQueue = [];
+    let isProcessingQueue = false;
+    let wsConnection = null;
+
+    // ==========================================
+    // FUNCIONES PRINCIPALES
+    // ==========================================
+
+    function getRandomPosition() {
+      const positions = [
+        { top: 100, left: 100 },
+        { top: 100, right: 100 },
+        { top: 300, left: 100 },
+        { top: 300, right: 100 },
+        { bottom: 100, left: 100 },
+        { bottom: 100, right: 100 },
+      ];
+      return positions[Math.floor(Math.random() * positions.length)];
+    }
+
+    function getCharacterSVG(className) {
+      return CHARACTERS[className] || CHARACTERS.guerrero;
+    }
+
+    function createCharacter(userName, className, event, targetName = null) {
+      const id = `char-${Date.now()}-${Math.random()}`;
+      const container = document.getElementById("container");
+      const pos = getRandomPosition();
+
+      let eventLabel = "";
+      let animationClass = "char-entry";
+
+      switch (event) {
+        case "ataque":
+          eventLabel = "⚔️ ATAQUE";
+          animationClass += " char-combat";
+          break;
+        case "detonar":
+          eventLabel = "💰 ROBO";
+          animationClass += " char-robo";
+          break;
+        case "levelup":
+          eventLabel = "📈 NIVEL UP";
+          animationClass += " char-celebracion";
+          break;
+        case "derrota":
+          eventLabel = "💀 DERROTADO";
+          animationClass += " char-derrota";
+          break;
+        case "duelo":
+          eventLabel = "🔥 DUELO";
+          animationClass += " char-duelo-1";
+          break;
+      }
+
+      const char = document.createElement("div");
+      char.className = `character ${animationClass}`;
+      char.id = id;
+      char.style.top = pos.top ? pos.top + "px" : "";
+      char.style.bottom = pos.bottom ? pos.bottom + "px" : "";
+      char.style.left = pos.left ? pos.left + "px" : "";
+      char.style.right = pos.right ? pos.right + "px" : "";
+
+      char.innerHTML = `
+        <svg class="pixel-art">${getCharacterSVG(className)}</svg>
+        <div class="username">${userName}</div>
+        <div class="event-label">${eventLabel}</div>
+      `;
+
+      container.appendChild(char);
+
+      characters.push({
+        id,
+        element: char,
+        createdAt: Date.now(),
+      });
+
+      // Remover después del tiempo de vida
+      setTimeout(() => {
+        removeCharacter(id);
+      }, CONFIG.character_lifetime);
+
+      return char;
+    }
+
+    function removeCharacter(id) {
+      const char = characters.find((c) => c.id === id);
+      if (!char) return;
+
+      char.element.classList.add("char-exit");
+
+      setTimeout(() => {
+        char.element.remove();
+        characters = characters.filter((c) => c.id !== id);
+      }, 400);
+    }
+
+    function showFloatingText(x, y, text, type = "gold") {
+      const container = document.getElementById("container");
+      const pop = document.createElement("div");
+      pop.className = type === "gold" ? "gold-pop" : "xp-pop";
+      pop.textContent = text;
+      pop.style.left = x + "px";
+      pop.style.top = y + "px";
+
+      container.appendChild(pop);
+
+      setTimeout(() => {
+        pop.remove();
+      }, 1500);
+    }
+
+    // ==========================================
+    // MANEJO DE EVENTOS
+    // ==========================================
+
+    function handleEvent(data) {
+      console.log("Evento recibido:", data);
+
+      const userName = data.userName || "Jugador";
+      const className = (data.class || "guerrero").toLowerCase();
+      const eventType = data.event || "";
+
+      switch (eventType) {
+        case "ataque":
+          createCharacter(userName, className, "ataque");
+          showFloatingText(200, 100, "+10 ORO", "gold");
+          showFloatingText(250, 150, "+26 XP", "xp");
+          break;
+
+        case "detonar":
+          createCharacter(userName, className, "detonar");
+          showFloatingText(
+            Math.random() * window.innerWidth,
+            Math.random() * 200,
+            "+10 ORO ROBADO",
+            "gold"
+          );
+          break;
+
+        case "levelup":
+          createCharacter(userName, className, "levelup");
+          showFloatingText(
+            Math.random() * window.innerWidth,
+            Math.random() * 200,
+            "⬆️ NIVEL UP",
+            "xp"
+          );
+          break;
+
+        case "derrota":
+          createCharacter(userName, className, "derrota");
+          showFloatingText(
+            Math.random() * window.innerWidth,
+            Math.random() * 200,
+            "💀 DERROTADO",
+            "gold"
+          );
+          break;
+
+        case "duelo":
+          const targetName = data.targetName || "Rival";
+          const targetClass = (data.targetClass || "arquero").toLowerCase();
+
+          // Crear ambos personajes lado a lado
+          const pos1 = { top: 200, left: 150 };
+          const pos2 = { top: 200, right: 150 };
+
+          createCharacter(userName, className, "duelo");
+          createCharacter(targetName, targetClass, "duelo");
+          break;
+
+        case "aventura":
+          createCharacter(userName, className, "ataque");
+          break;
+
+        default:
+          createCharacter(userName, className, "ataque");
+      }
+    }
+
+    // ==========================================
+    // COLA DE EVENTOS
+    // ==========================================
+
+    function enqueueEvent(data) {
+      eventQueue.push(data);
+      updateQueueInfo();
+      processQueue();
+    }
+
+    async function processQueue() {
+      if (isProcessingQueue || eventQueue.length === 0) return;
+
+      isProcessingQueue = true;
+
+      while (eventQueue.length > 0) {
+        const event = eventQueue.shift();
+        handleEvent(event);
+        updateQueueInfo();
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, CONFIG.queue_delay)
+        );
+      }
+
+      isProcessingQueue = false;
+    }
+
+    function updateQueueInfo() {
+      const queueInfo = document.getElementById("queue-info");
+      const queueCount = document.getElementById("queue-count");
+
+      queueCount.textContent = eventQueue.length;
+
+      if (eventQueue.length > 0) {
+        queueInfo.classList.add("active");
+      } else {
+        queueInfo.classList.remove("active");
+      }
+    }
+
+    // ==========================================
+    // WEBSOCKET
+    // ==========================================
+
+    function connectWebSocket() {
+      try {
+        wsConnection = new WebSocket(CONFIG.ws_url);
+
+        wsConnection.onopen = () => {
+          console.log("✅ WebSocket conectado a Streamer.bot");
+        };
+
+        wsConnection.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log("📨 Mensaje recibido:", data);
+
+            // Si es un evento de RPG, agregarlo a la cola
+            if (data.event) {
+              enqueueEvent(data);
+            }
+          } catch (err) {
+            console.error("Error procesando mensaje:", err);
+          }
+        };
+
+        wsConnection.onerror = (error) => {
+          console.error("❌ Error WebSocket:", error);
+        };
+
+        wsConnection.onclose = () => {
+          console.log("⚠️ WebSocket desconectado. Reconectando en 5s...");
+          setTimeout(connectWebSocket, 5000);
+        };
+      } catch (err) {
+        console.error("Error conectando WebSocket:", err);
+        setTimeout(connectWebSocket, 5000);
+      }
+    }
+
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+
+    window.addEventListener("load", () => {
+      console.log("🎮 Overlay RPG iniciado");
+      connectWebSocket();
+
+      // PRUEBA: Descomentar para probar sin WebSocket
+      // setInterval(() => {
+      //   const events = ["ataque", "detonar", "levelup", "duelo"];
+      //   const classes = ["guerrero", "mago", "arquero", "chamo", "sahur", "migajero"];
+      //   const event = events[Math.floor(Math.random() * events.length)];
+      //   const className = classes[Math.floor(Math.random() * classes.length)];
+      //   enqueueEvent({
+      //     userName: "Usuario" + Math.floor(Math.random() * 1000),
+      //     class: className,
+      //     event: event,
+      //     targetName: "Rival",
+      //     targetClass: classes[Math.floor(Math.random() * classes.length)],
+      //   });
+      // }, 3000);
+    });
+  </script>
+</body>
+</html>
