@@ -215,10 +215,32 @@
     .queue-info.active {
       display: block;
     }
+
+    .status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 9998;
+    }
+
+    .status.connecting {
+      background: rgba(220, 38, 38, 0.8);
+      color: #fff;
+    }
+
+    .status.connected {
+      background: rgba(34, 197, 94, 0.8);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
   <div id="container"></div>
+  <div id="status" class="status connecting">Conectando...</div>
   <div id="queue-info" class="queue-info">
     Eventos en cola: <span id="queue-count">0</span>
   </div>
@@ -229,10 +251,10 @@
     // ==========================================
 
     const CONFIG = {
-      ws_url: "ws://localhost:8080", // URL de Streamer.bot WebSocket
+      ws_url: "ws://127.0.0.1:8080",
       max_characters: 6,
-      character_lifetime: 6000, // 6 segundos
-      queue_delay: 500, // Delay entre eventos
+      character_lifetime: 6000,
+      queue_delay: 500,
     };
 
     // ==========================================
@@ -399,7 +421,6 @@
         createdAt: Date.now(),
       });
 
-      // Remover después del tiempo de vida
       setTimeout(() => {
         removeCharacter(id);
       }, CONFIG.character_lifetime);
@@ -439,7 +460,7 @@
     // ==========================================
 
     function handleEvent(data) {
-      console.log("Evento recibido:", data);
+      console.log("🎮 Evento recibido:", data);
 
       const userName = data.userName || "Jugador";
       const className = (data.class || "guerrero").toLowerCase();
@@ -485,10 +506,6 @@
         case "duelo":
           const targetName = data.targetName || "Rival";
           const targetClass = (data.targetClass || "arquero").toLowerCase();
-
-          // Crear ambos personajes lado a lado
-          const pos1 = { top: 200, left: 150 };
-          const pos2 = { top: 200, right: 150 };
 
           createCharacter(userName, className, "duelo");
           createCharacter(targetName, targetClass, "duelo");
@@ -544,6 +561,13 @@
       }
     }
 
+    function updateStatus(text, isConnected) {
+      const status = document.getElementById("status");
+      status.textContent = text;
+      status.classList.remove("connecting", "connected");
+      status.classList.add(isConnected ? "connected" : "connecting");
+    }
+
     // ==========================================
     // WEBSOCKET
     // ==========================================
@@ -554,14 +578,15 @@
 
         wsConnection.onopen = () => {
           console.log("✅ WebSocket conectado a Streamer.bot");
+          updateStatus("✅ Conectado", true);
         };
 
         wsConnection.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log("📨 Mensaje recibido:", data);
+            console.log("📨 Mensaje WebSocket:", data);
 
-            // Si es un evento de RPG, agregarlo a la cola
+            // Buscar si hay un evento de RPG en el mensaje
             if (data.event) {
               enqueueEvent(data);
             }
@@ -572,14 +597,17 @@
 
         wsConnection.onerror = (error) => {
           console.error("❌ Error WebSocket:", error);
+          updateStatus("❌ Error de conexión", false);
         };
 
         wsConnection.onclose = () => {
-          console.log("⚠️ WebSocket desconectado. Reconectando en 5s...");
+          console.log("⚠️ WebSocket desconectado");
+          updateStatus("Reconectando...", false);
           setTimeout(connectWebSocket, 5000);
         };
       } catch (err) {
         console.error("Error conectando WebSocket:", err);
+        updateStatus("Error", false);
         setTimeout(connectWebSocket, 5000);
       }
     }
@@ -592,20 +620,23 @@
       console.log("🎮 Overlay RPG iniciado");
       connectWebSocket();
 
-      // PRUEBA: Descomentar para probar sin WebSocket
-      // setInterval(() => {
-      //   const events = ["ataque", "detonar", "levelup", "duelo"];
-      //   const classes = ["guerrero", "mago", "arquero", "chamo", "sahur", "migajero"];
-      //   const event = events[Math.floor(Math.random() * events.length)];
-      //   const className = classes[Math.floor(Math.random() * classes.length)];
-      //   enqueueEvent({
-      //     userName: "Usuario" + Math.floor(Math.random() * 1000),
-      //     class: className,
-      //     event: event,
-      //     targetName: "Rival",
-      //     targetClass: classes[Math.floor(Math.random() * classes.length)],
-      //   });
-      // }, 3000);
+      // DESCOMENTAR PARA PRUEBAS SIN WEBSOCKET
+      /*
+      setInterval(() => {
+        const events = ["ataque", "detonar", "levelup", "derrota"];
+        const classes = ["guerrero", "mago", "arquero", "chamo", "sahur", "migajero"];
+        const eventType = events[Math.floor(Math.random() * events.length)];
+        const className = classes[Math.floor(Math.random() * classes.length)];
+        
+        enqueueEvent({
+          event: eventType,
+          userName: "Usuario" + Math.floor(Math.random() * 1000),
+          class: className,
+          targetName: "Rival",
+          targetClass: classes[Math.floor(Math.random() * classes.length)],
+        });
+      }, 3000);
+      */
     });
   </script>
 </body>
